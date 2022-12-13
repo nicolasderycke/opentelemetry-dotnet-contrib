@@ -65,11 +65,11 @@ namespace OpenTelemetry.Contrib.Instrumentation.MassTransit.Implementation
 
                 try
                 {
-                    this.options.Enrich?.Invoke(activity, "OnStartActivity", payload);
+                    this.options.EnrichWithRequestPayload?.Invoke(activity, payload);
                 }
                 catch (Exception ex)
                 {
-                    MassTransitInstrumentationEventSource.Log.EnrichmentException("OnStartActivity", ex);
+                    this.options.EnrichWithException(activity, ex);
                 }
             }
         }
@@ -82,11 +82,11 @@ namespace OpenTelemetry.Contrib.Instrumentation.MassTransit.Implementation
                 {
                     this.TransformMassTransitTags(activity);
 
-                    this.options.Enrich?.Invoke(activity, "OnStopActivity", payload);
+                    this.options.EnrichWithResponsePayload?.Invoke(activity, payload);
                 }
                 catch (Exception ex)
                 {
-                    MassTransitInstrumentationEventSource.Log.EnrichmentException(ex);
+                    this.options.EnrichWithException(activity, ex);
                 }
             }
         }

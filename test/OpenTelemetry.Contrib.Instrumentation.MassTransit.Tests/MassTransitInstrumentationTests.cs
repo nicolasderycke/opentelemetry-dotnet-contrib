@@ -243,6 +243,10 @@ namespace OpenTelemetry.Contrib.Instrumentation.MassTransit.Tests
             bool enrich = false,
             bool enrichmentException = false)
         {
+            bool enrichWithHttpRequestMessageCalled = false;
+            bool enrichWithHttpResponseMessageCalled = false;
+            bool enrichWithExceptionCalled = false;
+
             using Activity activity = new Activity("Parent");
             activity.SetParentId(
                 ActivityTraceId.CreateRandom(),
@@ -261,22 +265,19 @@ namespace OpenTelemetry.Contrib.Instrumentation.MassTransit.Tests
                     {
                         if (!enrichmentException)
                         {
-                            o.Enrich = (activity, eventName, obj) =>
-                            {
-                                if (eventName.Equals("OnStartActivity"))
-                                {
-                                    activity.SetTag("client.startactivity", "OnStartActivity");
-                                }
-                                else if (eventName.Equals("OnStopActivity"))
-                                {
-                                    activity.SetTag("client.stopactivity", "OnStopActivity");
-                                }
-                            };
+                            o.EnrichWithRequestPayload = (activity, httpRequestMessage) => { enrichWithHttpRequestMessageCalled = true; };
                         }
                         else
                         {
-                            o.Enrich = (activity, eventName, obj) => throw new Exception("Error while enriching activity");
+                            o.EnrichWithRequestPayload = (activity, httpRequestMessage) =>
+                            {
+                                enrichWithHttpRequestMessageCalled = true;
+                                throw new Exception("Error while enriching activity");
+                            };
                         }
+
+                        o.EnrichWithResponsePayload = (activity, httpResponseMessage) => { enrichWithHttpResponseMessageCalled = true; };
+                        o.EnrichWithException = (activity, obj) => { enrichWithExceptionCalled = true; };
                     }
                 })
                 .Build())
@@ -308,11 +309,24 @@ namespace OpenTelemetry.Contrib.Instrumentation.MassTransit.Tests
 
             Assert.Single(consumes);
 
-            if (enrich && !enrichmentException)
+            if (enrich)
             {
-                var consume = consumes.First();
-                Assert.Equal("OnStartActivity", consume.TagObjects.Single(t => t.Key == "client.startactivity").Value);
-                Assert.Equal("OnStopActivity", consume.TagObjects.Single(t => t.Key == "client.stopactivity").Value);
+                Assert.True(enrichWithHttpRequestMessageCalled);
+                Assert.True(enrichWithHttpResponseMessageCalled);
+            }
+            else
+            {
+                Assert.False(enrichWithHttpRequestMessageCalled);
+                Assert.False(enrichWithHttpResponseMessageCalled);
+            }
+
+            if (enrichmentException)
+            {
+                Assert.True(enrichWithExceptionCalled);
+            }
+            else
+            {
+                Assert.False(enrichWithExceptionCalled);
             }
         }
 
